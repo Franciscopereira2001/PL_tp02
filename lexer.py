@@ -3,9 +3,9 @@ import unittest
 #   Classe Lexer
 #
 class Lexer(object):
-    tokens = ("INT", "ESCREVER", "VAR", "ENTRADA", "ALEATORIO", "PARA", "EM", "FAZER", "FIM", "SE", "SENAO", "NEG", "STRING", "VARNAME")
-    literals = [";", "=", "+", "-", "*", "/", ",", '"', "(", ")", "[", "]", "<", ">", "&", "|"]
-    t_ignore =" \t"
+    tokens = ("INT", "ESCREVER", "VAR", "ENTRADA", "ALEATORIO", "PARA", "EM", "FAZER", "FIM", "SE", "SENAO", "NEG", "STRING", "NAME")
+    literals = [";", "=", "+", "-", "*", "/", ",", '"', "(", ")", "[", "]", "<", ">", "&", "|", ".", "{", "}"]
+    t_ignore =" \t\r\n"
     
     def __init__(self, exit_failure=False):
         self.lexer = None
@@ -24,16 +24,18 @@ class Lexer(object):
     t_SENAO = r"SENAO"
     t_NEG = r"NEG"
     t_STRING = r'"[^"]*"'
-    t_VARNAME = "[a-z]([a-z]|[A-Z]|[0-9]|_)*"
+    t_NAME = "[a-z]([a-z]|[A-Z]|[0-9]|_)*"
     
-    def build(self, string, **kwargs):
+    def build(self, **kwargs):
         self.lexer = plex.lex(module=self, **kwargs)
-        self.lexer.input(string)
-        
+    
+    def input(self, str):
+        self.lexer.input(str)
+    
     def token(self): 
         token = self.lexer.token()
         return token if token is None else token.type
-    
+
     def t_error(self, t):
         print(f"{t.lexer.lineno}: Illegal character '{t.value[0]}'")
         if self.exit_failure == False:
@@ -49,7 +51,8 @@ class TestLexerMethods(unittest.TestCase):
         self.lexer = Lexer()
     
     def helper(self, tc, expect):
-        self.lexer.build(tc)
+        self.lexer.build()
+        self.lexer.input(tc)
         
         if type(expect) is list:
             for e in expect:
@@ -59,6 +62,10 @@ class TestLexerMethods(unittest.TestCase):
             token = self.lexer.token()
             self.assertEqual(token, expect)
     
+    def test_PROGRAM(self):
+        self.helper("{}", ["{", "}"])
+        self.helper("{-123}", ["{", "INT", "}"])
+        
     def test_INT(self):
         self.helper("123", "INT")
         self.helper("-123", "INT")
@@ -96,8 +103,8 @@ class TestLexerMethods(unittest.TestCase):
     def test_STRING(self):
         self.helper('"abc"', "STRING")
     
-    def test_VARNAME(self):
-        self.helper('qwert', "VARNAME")
+    def test_NAME(self):
+        self.helper('qwert', "NAME")
         
     def test_literals(self):
         for literal in self.lexer.literals:
@@ -117,7 +124,32 @@ class TestLexerMethods(unittest.TestCase):
     
     def test_complex4(self):
         tc = 'VAR ano = 2023, mes="maio", dia ;'
-        self.helper(tc, ["VAR", "VARNAME", "=", "INT", "," , "VARNAME" , "=", "STRING", ",", "VARNAME", ";"])
+        self.helper(tc, ["VAR", "NAME", "=", "INT", "," , "NAME" , "=", "STRING", ",", "NAME", ";"])
+    
+    def test_complex5(self):
+        tc = "tmp = 7+3 ;"
+        self.helper(tc, ["NAME", "=", "INT", "+", "INT", ";"])
+    
+    def test_complex6(self):
+        tc = "a = 10 (30 + tmp ) ;"
+        self.helper(tc, ["NAME", "=", "INT", "(", "INT", "+", "NAME", ")"])
+    
+    def test_complex7(self):
+        tc = "a ++; a += 10; b = tmp * (a + 10);"
+        self.helper(tc, ["NAME", "+", "+", ";", "NAME", "+", "=", "INT", ";", "NAME", "=", "NAME", "*", "(", "NAME", "+", "INT" ,")"])
+        
+    def test_complex8(self):
+        tc = "valor = ENTRADA();"
+        self.helper(tc, ["NAME", "=", "ENTRADA", "(", ")", ";"])
+    
+    def test_complex9(self):
+        tc = "valor = ALEATORIO(10);"
+        self.helper(tc, ["NAME", "=", "ALEATORIO", "(", "INT", ")", ";"])
+    
+    def test_complex10(self):
+        tc = "PARA i EM [10..20] FAZER < valor = ALEATORIO(10); > FIM PARA ;"
+        self.helper(tc, ["PARA", "NAME", "EM", "[", "INT", ".", ".", "INT", "]", "FAZER" , "<", "NAME", "=", "ALEATORIO", "(", "INT", ")", ";", ">", "FIM", "PARA", ";"])
+    
     
     def test_error(self):
         self.helper("", None)
