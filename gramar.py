@@ -9,7 +9,6 @@ class Gramar:
     precedence = (
         ("left", "+", "-"),
         ("left", "*", "/"),
-        ("right", "uminus"),
     )
     '''
     def __init__(self):
@@ -95,6 +94,10 @@ class Gramar:
         """ declattr :   NAME '=' STRING """
         p[0] = {"op": "var", "params": {"tipo" : "string", "nome": p[1], "valor": p[3].replace('"','')}}
     
+    def p_declattr4(self, p):
+        """ declattr :   NAME '=' num """
+        p[0] = {"op": "var", "params": p[3]}
+    
     def p_fparams_args1(self, p):
         """ fparams_args :  fparams_args_decl """
         p[0] = self.flatten([p[1]])
@@ -110,36 +113,34 @@ class Gramar:
     def p_fparams_args_decl2(self, p):
         """ fparams_args_decl :  STRING """
         p[0] = {"tipo" : "string", "valor": p[1].replace('"','')}
-    '''
-    def p_num1(self, p):
-        """ NUM : INT
-                | '-' valor %prec uminus """
-        val = 0
-        if len(p) == 2:
-            val = -1*int(p[2])
-        else:
-            val = int(p[2])
-        p[0] = {"tipo" : "int", "nome": None, "valor": val } #todo:
 
-    def p_num2(self, p):
-        """ num : valor '+' valor
-                | valor '-' valor
-                | valor '*' valor
-                | valor '/' valor """
-        p[0] = {"op": p[2], "val": {"tipo" : "int", "nome": p[1], "valor": int(p[3])}}
+    def p_num1(self, p):
+        """ num : valor '+' num
+                | valor '-' num
+                | valor '*' num
+                | valor '/' num """
+        p[0] = {"op": p[2], "params": [p[1], p[3]]}
     
+    def p_num2(self, p):
+        """ num : valor"""
+        p[0] = p[1]
+        
+    def p_num3(self, p):
+        """ num : '(' num ')' """
+        p[0] = p[2]
+        
     def p_valor1(self, p):
-        """ valor : var """
-        p[0] = {'var': p[1]}
+        """ valor : NAME """
+        p[0] = {"tipo" : "int", "nome": p[1], "valor": None }
 
     def p_valor2(self, p):
         """ valor : '(' valor ')' """
         p[0] = p[2]
 
     def p_valor3(self, p):
-        """ valor : num """
-        p[0] = p[1]
-    '''
+        """ valor : INT """
+        p[0] = p[0] = {"tipo" : "int", "nome": None, "valor": p[1] }
+
     def p_error(self, p):
         if p:
             print(f"Syntax error: unexpected '{p.type}'")
@@ -191,6 +192,24 @@ class TestGramarMethods(unittest.TestCase):
         self.assertEqual(t[1][0], {'op': 'var', 'params': {'tipo': 'int', 'nome': 'dia', 'valor': 2}})
         self.assertEqual(t[1][1], {'op': 'var', 'params': {'tipo': 'string', 'nome': 'mes', 'valor': 'mar'}})
     
+    def test_variaveis_6(self):
+        tc = '{VAR dia = ab+2;}'
+        t = self.gramar.parse(tc)
+        res = str(t) 
+        self.assertEqual(t,{'op': 'var', 'params': {'op': '+', 'params': [{'tipo': 'int', 'nome': 'ab', 'valor': None}, {'tipo': 'int', 'nome': None, 'valor': '2'}]}})
+    
+    def test_variaveis_7(self):
+        tc = '{VAR dia = (((ab)+2));}'
+        t = self.gramar.parse(tc)
+        res = str(t) 
+        self.assertEqual(t,{'op': 'var', 'params': {'op': '+', 'params': [{'tipo': 'int', 'nome': 'ab', 'valor': None}, {'tipo': 'int', 'nome': None, 'valor': '2'}]}})
+    
+    def test_variaveis_8(self):
+        tc = '{VAR dia = ((3+4*2));}' #todo: Falta a precedencia do *
+        t = self.gramar.parse(tc)
+        res = str(t) 
+        self.assertEqual(t,{'op': 'var', 'params': {'op': '+', 'params': [{'tipo': 'int', 'nome': 'ab', 'valor': None}, {'tipo': 'int', 'nome': None, 'valor': '2'}]}})
+    
     def test_escrever_1(self):
         tc = '{ESCREVER "ola Mundo!";}'
         t = self.gramar.parse(tc)
@@ -211,6 +230,8 @@ class TestGramarMethods(unittest.TestCase):
         t = self.gramar.parse(tc)
         self.assertEqual(t,{'op': 'ESCREVER', 'params': [{'tipo': 'string', 'valor': 'ola Mundo!'}, {'tipo': 'int', 'valor': 123}, {'tipo': 'string', 'valor': "ok"}]})
     '''
+    
+    
 def main():
     unittest.main(verbosity=2)
     pass
